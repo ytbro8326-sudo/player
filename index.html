@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PlayersMoy — Ultimate M3U8 & HLS Video Player</title>
+  <!-- HLS.js Library -->
+  <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+  <!-- Custom Styles -->
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+  <!-- Header -->
+  <header class="app-header">
+    <div class="brand">
+      <div class="brand-icon">▶</div>
+      <div class="brand-title">Players<span>Moy</span></div>
+      <span class="badge-tag">HLS · M3U8 · MP4</span>
+    </div>
+  </header>
+
+  <!-- Player Main Layout -->
+  <main class="player-container">
+
+    <!-- Video Wrapper -->
+    <div class="video-wrapper paused" id="vwrap">
+      <div class="mode-badge" id="modeBadge">HLS / M3U8</div>
+
+      <!-- HTML5 Video Player -->
+      <video id="vid" preload="metadata" playsinline></video>
+
+      <!-- Fallback IFrame Container -->
+      <div class="iframe-container" id="iframeWrap">
+        <iframe id="iframePlayer" allowfullscreen allow="autoplay; encrypted-media; picture-in-picture"></iframe>
+      </div>
+
+      <!-- Overlay Custom Controls -->
+      <div class="video-overlay" id="overlay">
+        <!-- Seek Bar -->
+        <div class="seekbar-container" id="seekContainer">
+          <div class="seekbar-buffered" id="seekBuf"></div>
+          <div class="seekbar-progress" id="seekProg"></div>
+          <div class="seekbar-thumb" id="seekThumb"></div>
+        </div>
+
+        <!-- Controls Row -->
+        <div class="controls-row">
+          <button class="btn-ctrl" id="btnPlay" title="Play/Pause (Space)">▶</button>
+          <button class="btn-ctrl" id="btnBack" title="-10 Seconds">⏪</button>
+          <button class="btn-ctrl" id="btnFwd" title="+10 Seconds">⏩</button>
+          
+          <div class="volume-wrapper">
+            <button class="btn-ctrl" id="btnMute" title="Mute (M)">🔊</button>
+            <input type="range" class="volume-slider" id="volSlider" min="0" max="1" step="0.05" value="1">
+          </div>
+
+          <span class="time-display" id="timeDisplay">0:00 / 0:00</span>
+
+          <div class="spacer"></div>
+
+          <!-- Quality Dropdown -->
+          <select class="select-ctrl" id="qualSelect">
+            <option value="-1">Auto Quality</option>
+          </select>
+
+          <!-- Playback Speed Dropdown -->
+          <select class="select-ctrl" id="speedSelect">
+            <option value="0.5">0.5x</option>
+            <option value="0.75">0.75x</option>
+            <option value="1" selected>1.0x</option>
+            <option value="1.25">1.25x</option>
+            <option value="1.5">1.5x</option>
+            <option value="2">2.0x</option>
+          </select>
+
+          <button class="btn-ctrl" id="btnFullscreen" title="Fullscreen (F)">⛶</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Control & Input Panel -->
+    <div class="control-panel">
+      
+      <!-- Input Group -->
+      <div class="input-group">
+        <input type="text" class="input-field" id="urlInput" placeholder="Paste .m3u8, .mp4, or embed URL here...">
+        
+        <select class="select-ctrl" id="proxySelect" style="padding: 10px; border-radius: 8px;">
+          <option value="direct" selected>Direct Stream</option>
+          <option value="local">Local Proxy (/proxy)</option>
+          <option value="corsproxy">CORS Proxy Service</option>
+        </select>
+
+        <button class="btn-action" id="btnLoad">Play Stream</button>
+      </div>
+
+      <!-- Quick Demo Stream Presets -->
+      <div style="font-size: 0.75rem; color: var(--muted); font-weight: 600;">Demo Sample Streams:</div>
+      <div class="preset-list">
+        <button class="preset-btn" onclick="playersmoy.loadStream('https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8')">
+          📺 Big Buck Bunny (M3U8)
+        </button>
+        <button class="preset-btn" onclick="playersmoy.loadStream('https://playertest.longtailvideo.com/adaptive/oceans/oceans.m3u8')">
+          🌊 Ocean Wildlife (M3U8)
+        </button>
+        <button class="preset-btn" onclick="playersmoy.loadStream('https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4')">
+          🎬 For Bigger Blazes (MP4)
+        </button>
+      </div>
+
+      <!-- Status Bar -->
+      <div class="status-bar">
+        <div class="status-dot" id="statusDot"></div>
+        <span class="status-text" id="statusText">Ready — paste an M3U8 or MP4 URL above and press Play Stream.</span>
+      </div>
+
+    </div>
+
+  </main>
+
+  <footer>
+    PlayersMoy Standalone Package • Powered by HLS.js
+  </footer>
+
+  <!-- Script -->
+  <script src="player.js"></script>
+</body>
+</html>
