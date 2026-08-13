@@ -505,14 +505,23 @@ footer {
       <!-- Input Group -->
       <div class="input-group">
         <input type="text" class="input-field" id="urlInput" placeholder="Paste .m3u8, .mp4, or embed URL here...">
-        
+
         <select class="select-ctrl" id="proxySelect" style="padding: 10px; border-radius: 8px;">
           <option value="direct" selected>Direct Stream</option>
           <option value="local">Local Proxy (/proxy)</option>
-          <option value="corsproxy">CORS Proxy Service</option>
+          <option value="custom">Custom Proxy (Template)</option>
         </select>
 
         <button class="btn-action" id="btnLoad">Play Stream</button>
+      </div>
+
+      <!-- Advanced: Referer/Origin spoofing + custom proxy template -->
+      <div class="input-group">
+        <input type="text" class="input-field" id="refererInput" placeholder="Referer / Origin header (optional, e.g. https://example.com/)">
+        <input type="text" class="input-field" id="customProxyInput" style="display:none" placeholder="Custom proxy template — use {url} e.g. https://myproxy.com/fetch?target={url}">
+      </div>
+      <div style="font-size: 0.72rem; color: var(--muted);" id="advancedHint">
+        The Referer/Origin field only applies to <strong>Local Proxy</strong> mode — browsers block scripts from setting a real Referer header, so it's forwarded server-side instead.
       </div>
 
       <!-- Quick Demo Stream Presets -->
@@ -578,6 +587,8 @@ class PlayersMoy {
     // Panel
     this.urlInput = document.getElementById('urlInput');
     this.proxySelect = document.getElementById('proxySelect');
+    this.refererInput = document.getElementById('refererInput');
+    this.customProxyInput = document.getElementById('customProxyInput');
     this.btnLoad = document.getElementById('btnLoad');
     this.statusDot = document.getElementById('statusDot');
     this.statusText = document.getElementById('statusText');
@@ -612,6 +623,10 @@ class PlayersMoy {
     });
 
     this.btnFullscreen.addEventListener('click', () => this.toggleFullscreen());
+
+    // Toggle custom proxy template field / referer hint based on selected mode
+    this.proxySelect.addEventListener('change', () => this.updateProxyModeUI());
+    this.updateProxyModeUI();
 
     // Panel buttons
     this.btnLoad.addEventListener('click', () => {
@@ -750,11 +765,49 @@ class PlayersMoy {
     }
   }
 
+  updateProxyModeUI() {
+    const mode = this.proxySelect.value;
+    this.customProxyInput.style.display = mode === 'custom' ? 'block' : 'none';
+    const hint = document.getElementById('advancedHint');
+    if (mode === 'local') {
+      hint.innerHTML = 'The Referer/Origin field is forwarded server-side by the Local Proxy — browsers block scripts from setting a real Referer header directly, so this is the only reliable way to spoof it.';
+    } else if (mode === 'custom') {
+      hint.innerHTML = 'Custom Proxy sends requests through your own proxy service. Use <code>{url}</code> as a placeholder for the encoded target URL. Whether Referer/Origin get forwarded depends on that service — this app has no control over it.';
+    } else {
+      hint.innerHTML = 'Direct Stream mode talks to the source URL straight from your browser — no header spoofing is possible here.';
+    }
+  }
+
   resolveProxyUrl(url) {
     const proxyMode = this.proxySelect.value;
-    if (proxyMode === 'direct') return url;
-    if (proxyMode === 'local') return `/proxy?url=${encodeURIComponent(url)}`;
-    if (proxyMode === 'corsproxy') return `https://corsproxy.io/?${encodeURIComponent(url)}`;
+    const referer = this.refererInput.value.trim();
+
+    if (proxyMode === 'direct') {
+      return url;
+    }
+
+    if (proxyMode === 'local') {
+      let proxied = `/proxy?url=${encodeURIComponent(url)}`;
+      if (referer) {
+        proxied += `&ref=${encodeURIComponent(referer)}`;
+      }
+      return proxied;
+    }
+
+    if (proxyMode === 'custom') {
+      const template = this.customProxyInput.value.trim();
+      if (!template) {
+        this.setStatus('⚠️ Custom Proxy selected but no template URL was entered — using direct stream.', 'error');
+        return url;
+      }
+      const encoded = encodeURIComponent(url);
+      if (template.includes('{url}')) {
+        return template.replace('{url}', encoded);
+      }
+      // No placeholder given — assume the target URL should be appended directly
+      return `${template}${encoded}`;
+    }
+
     return url;
   }
 
