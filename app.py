@@ -12,10 +12,19 @@ HEADERS = {
     "Accept-Language": "en-US,en;q=0.9",
 }
 
+def rewrite_m3u8(content: str, original_url: str, ref: str = '', origin: str = '') -> str:
+    """Rewrites relative segment and playlist URLs inside m3u8 file to pass through proxy.
 
-def rewrite_m3u8(content: str, original_url: str) -> str:
-    """Rewrites relative segment and playlist URLs inside m3u8 file to pass through proxy."""
+    ref/origin (if provided) are re-attached to every rewritten sub-request so that
+    segment and key fetches keep using the same spoofed Referer/Origin as the manifest did.
+    """
     base_dir = original_url.rsplit('/', 1)[0] + '/'
+
+    extra_params = ''
+    if ref:
+        extra_params += f'&ref={requests.utils.quote(ref)}'
+    if origin:
+        extra_params += f'&origin={requests.utils.quote(origin)}'
 
     lines = content.splitlines()
     out = []
@@ -31,23 +40,21 @@ def rewrite_m3u8(content: str, original_url: str) -> str:
             def replace_uri(m):
                 u = m.group(1)
                 full = urljoin(base_dir, u)
-                return f'URI="/proxy?url={requests.utils.quote(full)}"'
+                return f'URI="/proxy?url={requests.utils.quote(full)}{extra_params}"'
 
             line = re.sub(r'URI="([^"]+)"', replace_uri, line)
             out.append(line)
         else:
             # Media segment or sub-playlist URL
             full_url = urljoin(base_dir, s)
-            proxied = f'/proxy?url={requests.utils.quote(full_url)}'
+            proxied = f'/proxy?url={requests.utils.quote(full_url)}{extra_params}'
             out.append(proxied)
 
     return "\n".join(out)
 
-
 @app.route('/')
 def index():
     return send_from_directory('.', 'index.html')
-
 
 @app.route('/proxy')
 def proxy():
@@ -57,13 +64,31 @@ def proxy():
 
     target_url = unquote(raw_url)
 
+    # Optional spoofed Referer/Origin — browsers can't set these headers themselves,
+    # so the player sends them here as query params and we attach them server-side.
+    raw_ref = request.args.get('ref', '')
+    raw_origin = request.args.get('origin', '')
+    ref = unquote(raw_ref) if raw_ref else ''
+    origin = unquote(raw_origin) if raw_origin else ''
+
+    req_headers = dict(HEADERS)
+    if ref:
+        req_headers['Referer'] = ref
+        if not origin:
+            # Derive Origin from Referer when only Referer was supplied
+            parsed_ref = urlparse(ref)
+            if parsed_ref.scheme and parsed_ref.netloc:
+                origin = f'{parsed_ref.scheme}://{parsed_ref.netloc}'
+    if origin:
+        req_headers['Origin'] = origin
+
     try:
-        resp = requests.get(target_url, headers=HEADERS, stream=True, timeout=15)
+        resp = requests.get(target_url, headers=req_headers, stream=True, timeout=15)
         content_type = resp.headers.get('Content-Type', '')
 
         if '.m3u8' in target_url.lower() or 'mpegurl' in content_type.lower():
             text = resp.text
-            rewritten = rewrite_m3u8(text, target_url)
+            rewritten = rewrite_m3u8(text, target_url, ref, origin)
             return Response(
                 rewritten,
                 status=resp.status_code,
@@ -72,7 +97,7 @@ def proxy():
             )
 
         def generate():
-            for chunk in resp.iter_content(chunk_size=64 * 1024):
+            for chunk in resp.iter_content(chunk_size=64*1024):
                 if chunk:
                     yield chunk
 
@@ -83,9 +108,9 @@ def proxy():
     except Exception as e:
         return Response(f"Proxy error: {str(e)}", status=500)
 
-
 if __name__ == '__main__':
     # Render (and most PaaS hosts) inject the port to bind to via the PORT env var.
+    # Falls back to 5000 for local development.
     port = int(os.environ.get('PORT', 5000))
     debug = os.environ.get('FLASK_DEBUG', 'false').lower() == 'true'
     print(f"🚀 PlayersMoy Server running at: http://127.0.0.1:{port}")
