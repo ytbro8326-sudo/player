@@ -3,7 +3,7 @@ services:
     name: playersmoy
     runtime: python
     plan: free
-    buildCommand: pip install -r requirements.txt
+    buildCommand: pip install flask requests gunicorn
     startCommand: gunicorn server:app --workers 2 --threads 4 --timeout 120 --bind 0.0.0.0:$PORT
     envVars:
       - key: PYTHON_VERSION
